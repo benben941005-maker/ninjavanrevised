@@ -28,10 +28,9 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: requirements.txt
 
       - name: Install dependencies
-        working-directory: backend
         run: |
           pip install -r requirements.txt
           pip install pytest pytest-asyncio httpx
@@ -79,7 +78,7 @@ jobs:
           docker build \
             -t "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:${GITHUB_SHA}" \
             -t "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:latest" \
-            ./backend
+            .
 
       - name: Push Docker image
         run: |
