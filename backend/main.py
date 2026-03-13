@@ -4,7 +4,6 @@ AI Senior Driver Copilot — FastAPI Backend
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import uvicorn
 import os
@@ -30,6 +29,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend"))
+INDEX_FILE = os.path.join(FRONTEND_DIR, "index.html")
+
 # API Routes
 app.include_router(chat_router, prefix="/api/chat", tags=["AI Assistant"])
 app.include_router(ocr_router, prefix="/api/ocr", tags=["Parcel OCR"])
@@ -45,9 +49,12 @@ async def health_check():
 
 
 @app.get("/")
-async def root():
-    return {"message": "AI Senior Driver Copilot API. Visit /docs for API documentation."}
+async def serve_frontend():
+    if os.path.exists(INDEX_FILE):
+        return FileResponse(INDEX_FILE)
+    return {"message": "Frontend not found. Please make sure frontend/index.html is included in the deployment."}
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
