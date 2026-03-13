@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI Driver Copilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #13161d;
+    --card: #1a1e28;
+    --border: #252a38;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --green: #00e676;
+    --orange: #ff9100;
+    --red: #ff1744;
+    --yellow: #ffd600;
+    --text: #e8eaf6;
+    --muted: #546e7a;
+    --font: 'Syne', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(10,12,16,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 800; letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    background: rgba(0,230,118,0.1);
+    border: 1px solid rgba(0,230,118,0.3);
+    border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    color: var(--green);
+    font-family: var(--mono);
+  }
+
+  .pulse {
+    width: 7px; height: 7px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* ── MAIN CONTENT ── */
+  .main {
+    padding-top: 64px;
+    padding-bottom: 80px;
+  }
+
+  /* ── NAV TABS ── */
+  .nav-tabs {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(10,12,16,0.98);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    padding: 8px 0 env(safe-area-inset-bottom, 8px);
+  }
+
+  .tab-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px 4px;
+    background: none; border: none; cursor: pointer;
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.04em;
+    transition: color 0.2s;
+  }
+
+  .tab-btn.active { color: var(--accent); }
+
+  .tab-btn svg { width: 22px; height: 22px; }
+
+  /* ── SECTIONS ── */
+  .section { display: none; padding: 16px; }
+  .section.active { display: block; }
+
+  /* ── WEATHER BANNER ── */
+  .weather-banner {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    cursor: pointer;
+  }
+
+  .weather-icon { font-size: 28px; }
+
+  .weather-info { flex: 1; }
+  .weather-main { font-size: 15px; font-weight: 700; }
+  .weather-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .weather-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    font-family: var(--mono);
+  }
+
+  .badge-green { background: rgba(0,230,118,0.15); color: var(--green); }
+  .badge-yellow { background: rgba(255,214,0,0.15); color: var(--yellow); }
+  .badge-orange { background: rgba(255,145,0,0.15); color: var(--orange); }
+  .badge-red { background: rgba(255,23,68,0.15); color: var(--red); }
+
+  /* ── CHAT ── */
+  .chat-container {
+    display: flex; flex-direction: column;
+    height: calc(100vh - 160px);
+  }
+
+  .chat-messages {
+    flex: 1; overflow-y: auto;
+    padding: 8px 0;
+    display: flex; flex-direction: column; gap: 12px;
+    scrollbar-width: none;
+  }
+
+  .chat-messages::-webkit-scrollbar { display: none; }
+
+  .msg {
+    max-width: 88%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 14px; line-height: 1.5;
+    animation: fadeUp 0.3s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, var(--accent2), #4c1d95);
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+
+  .msg.ai {
+    align-self: flex-start;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+
+  .msg.ai .msg-label {
+    font-size: 10px; font-weight: 700;
+    color: var(--accent);
+    font-family: var(--mono);
+    margin-bottom: 4px;
+    letter-spacing: 0.08em;
+  }
+
+  .msg.typing {
+    padding: 14px;
+  }
+
+  .typing-dots {
+    display: flex; gap: 4px;
+  }
+
+  .typing-dots span {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: dot 1.4s infinite;
+  }
+
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dot {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Chat Input */
+  .chat-input-area {
+    display: flex; gap: 8px; align-items: flex-end;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .chat-input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    min-height: 44px;
+    max-height: 100px;
+    transition: border-color 0.2s;
+  }
+
+  .chat-input:focus { border-color: var(--accent); }
+  .chat-input::placeholder { color: var(--muted); }
+
+  .icon-btn {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .btn-send {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+  }
+
+  .btn-voice {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .btn-voice.recording {
+    background: rgba(255,23,68,0.15);
+    border-color: var(--red);
+    color: var(--red);
+    animation: recordPulse 1s infinite;
+  }
+
+  @keyframes recordPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,23,68,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(255,23,68,0); }
+  }
+
+  /* Quick prompts */
+  .quick-prompts {
+    display: flex; gap: 8px;
+    overflow-x: auto; padding-bottom: 8px;
+    scrollbar-width: none;
+    margin-bottom: 8px;
+  }
+
+  .quick-prompts::-webkit-scrollbar { display: none; }
+
+  .quick-btn {
+    flex-shrink: 0;
+    padding: 7px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text);
+    font-size: 12px; font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .quick-btn:active { background: var(--border); }
+
+  /* ── SCAN ── */
+  .scan-area {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    margin-bottom: 16px;
+  }
+
+  .scan-area:active { border-color: var(--accent); }
+
+  .scan-icon { font-size: 48px; margin-bottom: 12px; }
+  .scan-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .scan-sub { font-size: 13px; color: var(--muted); }
+
+  #scanFileInput { display: none; }
+
+  .parcel-result {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    display: none;
+  }
+
+  .parcel-result.show { display: block; animation: fadeUp 0.3s ease; }
+
+  .result-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .result-title { font-size: 14px; font-weight: 800; color: var(--accent); font-family: var(--mono); }
+
+  .confidence-badge {
+    padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;
+    font-family: var(--mono);
+  }
+
+  .field-row {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .field-row:last-child { border-bottom: none; }
+
+  .field-label { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; }
+  .field-value { font-size: 15px; font-weight: 600; }
+
+  .nav-from-scan-btn {
+    width: 100%; margin-top: 14px;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 12px;
+    color: white; font-family: var(--font);
+    font-size: 15px; font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ── NAVIGATION ── */
+  .search-box {
+    display: flex; gap: 8px; margin-bottom: 16px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  .search-btn {
+    padding: 12px 18px;
+    background: var(--accent);
+    border: none; border-radius: 12px;
+    color: var(--bg);
+    font-family: var(--font);
+    font-size: 14px; font-weight: 700;
+    cursor: pointer;
+  }
+
+  .result-list {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .address-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .address-card:active { border-color: var(--accent); }
+
+  .addr-main { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .addr-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  .map-placeholder {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    height: 200px;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 8px;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  /* ── WEATHER ── */
+  .weather-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .weather-big-icon { font-size: 56px; margin-bottom: 8px; }
+  .weather-temp { font-size: 48px; font-weight: 800; }
+  .weather-desc { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  .weather-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-top: 16px;
+  }
+
+  .weather-stat {
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-val { font-size: 20px; font-weight: 700; font-family: var(--mono); }
+  .stat-key { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 600; }
+
+  .alert-box {
+    border-radius: 12px;
+    padding: 14px;
+    margin-top: 12px;
+    font-size: 13px; line-height: 1.5;
+    font-weight: 600;
+  }
+
+  .alert-green { background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3); color: var(--green); }
+  .alert-yellow { background: rgba(255,214,0,0.1); border: 1px solid rgba(255,214,0,0.3); color: var(--yellow); }
+  .alert-orange { background: rgba(255,145,0,0.1); border: 1px solid rgba(255,145,0,0.3); color: var(--orange); }
+  .alert-red { background: rgba(255,23,68,0.1); border: 1px solid rgba(255,23,68,0.3); color: var(--red); }
+
+  /* ── NOTIFICATIONS ── */
+  .scenario-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-bottom: 16px;
+  }
+
+  .scenario-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .scenario-card.selected {
+    border-color: var(--accent);
+    background: rgba(0,212,255,0.08);
+  }
+
+  .scenario-icon { font-size: 24px; margin-bottom: 6px; }
+  .scenario-label { font-size: 12px; font-weight: 700; }
+
+  .form-group { margin-bottom: 12px; }
+  .form-label { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 6px; display: block; letter-spacing: 0.06em; }
+
+  .form-input {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-input:focus { border-color: var(--accent); }
+
+  .generate-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent2), #4c1d95);
+    border: none; border-radius: 12px;
+    color: white; font-family: var(--font);
+    font-size: 15px; font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 16px;
+  }
+
+  .msg-options { display: flex; flex-direction: column; gap: 8px; }
+
+  .msg-option {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+
+  .msg-text { font-size: 13px; line-height: 1.5; flex: 1; }
+
+  .copy-btn {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    border-radius: 8px;
+    color: var(--accent);
+    font-size: 12px; font-weight: 700;
+    font-family: var(--font);
+    cursor: pointer;
+  }
+
+  /* ── SECTION HEADER ── */
+  .section-header {
+    margin-bottom: 16px;
+  }
+
+  .section-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+  .section-sub { font-size: 13px; color: var(--muted); }
+
+  /* ── LOADER ── */
+  .loader {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted); font-size: 13px;
+    padding: 16px 0;
+    justify-content: center;
+  }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 13px; font-weight: 600;
+    z-index: 200;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">🚚</div>
+    AI COPILOT
+  </div>
+  <div class="status-pill">
+    <div class="pulse"></div>
+    ONLINE
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+
+  <!-- CHAT TAB -->
+  <div class="section active" id="tab-chat">
+    <div class="chat-container">
+      <div class="quick-prompts">
+        <button class="quick-btn" onclick="sendQuick('Customer is not home, what should I do?')">🏠 Not Home</button>
+        <button class="quick-btn" onclick="sendQuick('How do I access a HDB void deck?')">🏢 HDB Access</button>
+        <button class="quick-btn" onclick="sendQuick('My parcel is damaged, what steps should I take?')">📦 Damaged</button>
+        <button class="quick-btn" onclick="sendQuick('Give me tips for faster deliveries')">⚡ Speed Tips</button>
+        <button class="quick-btn" onclick="sendQuick('How do I handle a rude customer?')">😤 Rude Customer</button>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="msg ai">
+          <div class="msg-label">AI COPILOT</div>
+          Hi! I'm your AI Senior Driver Copilot 🚚<br><br>
+          I can help you with deliveries, navigate tricky addresses, handle customer issues, and guide you through any delivery challenges.<br><br>
+          What do you need help with?
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <button class="icon-btn btn-voice" id="voiceBtn" onclick="toggleVoice()">🎙️</button>
+        <textarea class="chat-input" id="chatInput" placeholder="Ask anything about your delivery..." rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"
+          oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+        <button class="icon-btn btn-send" onclick="sendChat()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCAN TAB -->
+  <div class="section" id="tab-scan">
+    <div class="section-header">
+      <div class="section-title">Parcel Scanner</div>
+      <div class="section-sub">Scan label to extract delivery details</div>
+    </div>
+
+    <div class="scan-area" onclick="document.getElementById('scanFileInput').click()">
+      <div class="scan-icon">📷</div>
+      <div class="scan-title">Tap to Scan Label</div>
+      <div class="scan-sub">Take a photo or upload from gallery</div>
+      <input type="file" id="scanFileInput" accept="image/*" capture="environment" onchange="scanParcel(this)">
+    </div>
+
+    <div id="scanLoader" style="display:none">
+      <div class="loader"><div class="spinner"></div>Scanning label with AI vision...</div>
+    </div>
+
+    <div class="parcel-result" id="parcelResult">
+      <div class="result-header">
+        <span class="result-title">📦 PARCEL INFO</span>
+        <span class="confidence-badge badge-green" id="confidenceBadge">HIGH</span>
+      </div>
+      <div class="field-row">
+        <div class="field-label">RECIPIENT</div>
+        <div class="field-value" id="f-name">—</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">ADDRESS</div>
+        <div class="field-value" id="f-address">—</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">UNIT NUMBER</div>
+        <div class="field-value" id="f-unit">—</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">POSTAL CODE</div>
+        <div class="field-value" id="f-postal">—</div>
+      </div>
+      <div class="field-row">
+        <div class="field-label">TRACKING NO.</div>
+        <div class="field-value" id="f-tracking" style="font-family:var(--mono);font-size:13px">—</div>
+      </div>
+      <button class="nav-from-scan-btn" onclick="navigateFromScan()">🗺️ Navigate to This Address</button>
+    </div>
+  </div>
+
+  <!-- NAVIGATION TAB -->
+  <div class="section" id="tab-nav">
+    <div class="section-header">
+      <div class="section-title">Navigation</div>
+      <div class="section-sub">Search Singapore addresses</div>
+    </div>
+
+    <div class="search-box">
+      <input type="text" class="search-input" id="navSearch" placeholder="Postal code or address..."
+        onkeydown="if(event.key==='Enter')searchAddress()">
+      <button class="search-btn" onclick="searchAddress()">Search</button>
+    </div>
+
+    <div id="navLoader" style="display:none">
+      <div class="loader"><div class="spinner"></div>Searching OneMap...</div>
+    </div>
+
+    <div class="result-list" id="navResults"></div>
+
+    <div class="map-placeholder" id="mapPlaceholder">
+      <div style="font-size:32px">🗺️</div>
+      <div>Search an address to get directions</div>
+      <div style="font-size:11px;font-family:var(--mono);color:var(--muted);margin-top:4px">Powered by OneMap Singapore</div>
+    </div>
+  </div>
+
+  <!-- WEATHER TAB -->
+  <div class="section" id="tab-weather">
+    <div class="section-header">
+      <div class="section-title">Weather</div>
+      <div class="section-sub">Real-time delivery conditions</div>
+    </div>
+
+    <div id="weatherLoader">
+      <div class="loader"><div class="spinner"></div>Getting weather...</div>
+    </div>
+
+    <div id="weatherContent" style="display:none">
+      <div class="weather-card">
+        <div class="weather-big-icon" id="wIcon">⛅</div>
+        <div class="weather-temp" id="wTemp">--°C</div>
+        <div class="weather-desc" id="wDesc">Loading...</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;font-family:var(--mono)" id="wLocation"></div>
+
+        <div class="weather-grid">
+          <div class="weather-stat">
+            <div class="stat-val" id="wHumidity">--%</div>
+            <div class="stat-key">HUMIDITY</div>
+          </div>
+          <div class="weather-stat">
+            <div class="stat-val" id="wWind">-- km/h</div>
+            <div class="stat-key">WIND</div>
+          </div>
+        </div>
+
+        <div class="alert-box" id="wAlert"></div>
+      </div>
+
+      <button onclick="loadWeather()" style="
+        width:100%; padding:12px;
+        background:var(--card); border:1px solid var(--border);
+        border-radius:12px; color:var(--text);
+        font-family:var(--font); font-size:14px; font-weight:600;
+        cursor:pointer;
+      ">🔄 Refresh Weather</button>
+    </div>
+  </div>
+
+  <!-- NOTIFY TAB -->
+  <div class="section" id="tab-notify">
+    <div class="section-header">
+      <div class="section-title">Notify Customer</div>
+      <div class="section-sub">AI-generated delivery messages</div>
+    </div>
+
+    <div class="scenario-grid">
+      <div class="scenario-card selected" data-scenario="eta" onclick="selectScenario(this,'eta')">
+        <div class="scenario-icon">🚚</div>
+        <div class="scenario-label">ETA Alert</div>
+      </div>
+      <div class="scenario-card" data-scenario="not_home" onclick="selectScenario(this,'not_home')">
+        <div class="scenario-icon">🏠</div>
+        <div class="scenario-label">Not Home</div>
+      </div>
+      <div class="scenario-card" data-scenario="delay" onclick="selectScenario(this,'delay')">
+        <div class="scenario-icon">⏰</div>
+        <div class="scenario-label">Delay</div>
+      </div>
+      <div class="scenario-card" data-scenario="delivered" onclick="selectScenario(this,'delivered')">
+        <div class="scenario-icon">✅</div>
+        <div class="scenario-label">Delivered</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">CUSTOMER NAME</label>
+      <input type="text" class="form-input" id="notifyName" placeholder="e.g. John Tan">
+    </div>
+
+    <div class="form-group" id="etaGroup">
+      <label class="form-label">ETA (MINUTES)</label>
+      <input type="number" class="form-input" id="notifyEta" placeholder="e.g. 15" value="15">
+    </div>
+
+    <button class="generate-btn" onclick="generateNotification()">
+      ✨ Generate Messages
+    </button>
+
+    <div id="notifyLoader" style="display:none">
+      <div class="loader"><div class="spinner"></div>Generating with Claude AI...</div>
+    </div>
+
+    <div class="msg-options" id="msgOptions"></div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="nav-tabs">
+  <button class="tab-btn active" onclick="switchTab('chat',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+    AI Chat
+  </button>
+  <button class="tab-btn" onclick="switchTab('scan',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+      <rect x="7" y="7" width="10" height="10" rx="1"/>
+    </svg>
+    Scan
+  </button>
+  <button class="tab-btn" onclick="switchTab('nav',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+    </svg>
+    Navigate
+  </button>
+  <button class="tab-btn" onclick="switchTab('weather',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+    </svg>
+    Weather
+  </button>
+  <button class="tab-btn" onclick="switchTab('notify',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.38 2 2 0 0 1 3.6 2.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 17"/>
+    </svg>
+    Notify
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ──
+const API_BASE = "http://localhost:8000/api";
+// Update this to your Cloud Run URL in production:
+// const API_BASE = "https://ai-driver-copilot-xxxx-as.a.run.app/api";
+
+let chatHistory = [];
+let selectedScenario = "eta";
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+let scannedAddress = null;
+let currentLat = 1.3521;
+let currentLng = 103.8198;
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      currentLat = pos.coords.latitude;
+      currentLng = pos.coords.longitude;
+    });
+  }
+  loadWeather();
+});
+
+// ── TAB SWITCHING ──
+function switchTab(name, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  btn.classList.add('active');
+
+  if (name === 'weather') loadWeather();
+}
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── CHAT ──
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  if (!message) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  appendMessage('user', message);
+
+  chatHistory.push({ role: 'user', content: message });
+
+  // Typing indicator
+  const typingId = appendTyping();
+
+  try {
+    const res = await fetch(`${API_BASE}/chat/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        history: chatHistory.slice(-10),
+        location: `${currentLat},${currentLng}`
+      })
+    });
+
+    const data = await res.json();
+    removeTyping(typingId);
+
+    const reply = data.reply || "Sorry, I couldn't process that. Please try again.";
+    appendMessage('ai', reply);
+    chatHistory.push({ role: 'assistant', content: reply });
+
+  } catch (err) {
+    removeTyping(typingId);
+    appendMessage('ai', '⚠️ Connection error. Make sure the backend server is running at ' + API_BASE);
+  }
+}
+
+function sendQuick(text) {
+  document.getElementById('chatInput').value = text;
+  sendChat();
+}
+
+function appendMessage(role, content) {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+
+  if (role === 'ai') {
+    div.innerHTML = `<div class="msg-label">AI COPILOT</div>${content.replace(/\n/g, '<br>')}`;
+  } else {
+    div.textContent = content;
+  }
+
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function appendTyping() {
+  const container = document.getElementById('chatMessages');
+  const id = 'typing-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'msg ai typing';
+  div.id = id;
+  div.innerHTML = `<div class="msg-label">AI COPILOT</div><div class="typing-dots"><span></span><span></span><span></span></div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// ── VOICE ──
+async function toggleVoice() {
+  const btn = document.getElementById('voiceBtn');
+
+  if (!isRecording) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const base64 = reader.result;
+          try {
+            const res = await fetch(`${API_BASE}/voice/transcribe-blob`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audio: base64 })
+            });
+            const data = await res.json();
+            if (data.text) {
+              document.getElementById('chatInput').value = data.text;
+            }
+          } catch (e) {
+            showToast('Transcription failed');
+          }
+        };
+        reader.readAsDataURL(blob);
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      btn.classList.add('recording');
+      btn.textContent = '⏹️';
+
+    } catch (e) {
+      showToast('Microphone access denied');
+    }
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    btn.classList.remove('recording');
+    btn.textContent = '🎙️';
+  }
+}
+
+// ── PARCEL SCAN ──
+async function scanParcel(input) {
+  if (!input.files[0]) return;
+
+  const file = input.files[0];
+  const reader = new FileReader();
+
+  document.getElementById('scanLoader').style.display = 'block';
+  document.getElementById('parcelResult').classList.remove('show');
+
+  reader.onload = async () => {
+    const base64 = reader.result;
+    try {
+      const res = await fetch(`${API_BASE}/ocr/scan-base64`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64 })
+      });
+
+      const data = await res.json();
+      document.getElementById('scanLoader').style.display = 'none';
+
+      document.getElementById('f-name').textContent = data.recipient_name || '—';
+      document.getElementById('f-address').textContent = data.address || '—';
+      document.getElementById('f-unit').textContent = data.unit_number || '—';
+      document.getElementById('f-postal').textContent = data.postal_code || '—';
+      document.getElementById('f-tracking').textContent = data.tracking_number || '—';
+
+      const badge = document.getElementById('confidenceBadge');
+      badge.textContent = data.confidence?.toUpperCase() || 'LOW';
+      badge.className = 'confidence-badge badge-' + (data.confidence === 'high' ? 'green' : data.confidence === 'medium' ? 'yellow' : 'orange');
+
+      scannedAddress = data.address;
+      if (data.postal_code) scannedAddress = (scannedAddress || '') + ' ' + data.postal_code;
+
+      document.getElementById('parcelResult').classList.add('show');
+
+    } catch (e) {
+      document.getElementById('scanLoader').style.display = 'none';
+      showToast('Scan failed — check your connection');
+    }
+  };
+
+  reader.readAsDataURL(file);
+}
+
+function navigateFromScan() {
+  if (!scannedAddress) return;
+  switchTab('nav', document.querySelector('.tab-btn:nth-child(3)'));
+  document.getElementById('navSearch').value = scannedAddress;
+  searchAddress();
+}
+
+// ── NAVIGATION ──
+async function searchAddress() {
+  const query = document.getElementById('navSearch').value.trim();
+  if (!query) return;
+
+  document.getElementById('navLoader').style.display = 'block';
+  document.getElementById('navResults').innerHTML = '';
+
+  try {
+    const res = await fetch(`${API_BASE}/navigation/search?query=${encodeURIComponent(query)}&limit=5`);
+    const data = await res.json();
+
+    document.getElementById('navLoader').style.display = 'none';
+
+    if (!data.length) {
+      document.getElementById('navResults').innerHTML = '<div style="color:var(--muted);font-size:14px;text-align:center;padding:20px">No results found</div>';
+      return;
+    }
+
+    data.forEach(addr => {
+      const card = document.createElement('div');
+      card.className = 'address-card';
+      card.innerHTML = `
+        <div class="addr-main">${addr.address}</div>
+        <div class="addr-sub">📍 ${addr.latitude.toFixed(4)}, ${addr.longitude.toFixed(4)} ${addr.postal_code ? '| S(' + addr.postal_code + ')' : ''}</div>
+      `;
+      card.onclick = () => openNavigation(addr);
+      document.getElementById('navResults').appendChild(card);
+    });
+
+  } catch (e) {
+    document.getElementById('navLoader').style.display = 'none';
+    showToast('Navigation search failed');
+  }
+}
+
+function openNavigation(addr) {
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${addr.latitude},${addr.longitude}&travelmode=driving`;
+  window.open(url, '_blank');
+}
+
+// ── WEATHER ──
+async function loadWeather() {
+  document.getElementById('weatherLoader').style.display = 'block';
+  document.getElementById('weatherContent').style.display = 'none';
+
+  try {
+    const res = await fetch(`${API_BASE}/weather/current?lat=${currentLat}&lng=${currentLng}`);
+    const data = await res.json();
+
+    document.getElementById('wTemp').textContent = `${data.temperature_c}°C`;
+    document.getElementById('wDesc').textContent = data.condition;
+    document.getElementById('wLocation').textContent = data.location;
+    document.getElementById('wHumidity').textContent = `${data.humidity}%`;
+    document.getElementById('wWind').textContent = `${data.wind_kph} km/h`;
+
+    // Weather icon based on condition
+    const cond = data.condition.toLowerCase();
+    let icon = '☀️';
+    if (cond.includes('thunder')) icon = '⛈️';
+    else if (cond.includes('heavy rain')) icon = '🌧️';
+    else if (cond.includes('rain') || cond.includes('drizzle')) icon = '🌦️';
+    else if (cond.includes('cloud')) icon = '⛅';
+    else if (cond.includes('fog') || cond.includes('mist')) icon = '🌫️';
+    document.getElementById('wIcon').textContent = icon;
+
+    const alertEl = document.getElementById('wAlert');
+    alertEl.textContent = data.delivery_advice;
+    alertEl.className = `alert-box alert-${data.alert_color}`;
+
+    document.getElementById('weatherLoader').style.display = 'none';
+    document.getElementById('weatherContent').style.display = 'block';
+
+  } catch (e) {
+    document.getElementById('weatherLoader').style.display = 'none';
+    document.getElementById('weatherContent').style.display = 'block';
+    document.getElementById('wDesc').textContent = 'Weather unavailable';
+    document.getElementById('wAlert').textContent = 'Could not load weather data. Check your API connection.';
+    document.getElementById('wAlert').className = 'alert-box alert-orange';
+  }
+}
+
+// ── NOTIFICATIONS ──
+function selectScenario(card, scenario) {
+  document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  selectedScenario = scenario;
+  document.getElementById('etaGroup').style.display = scenario === 'eta' ? 'block' : 'none';
+}
+
+async function generateNotification() {
+  const name = document.getElementById('notifyName').value.trim() || 'Customer';
+  const eta = document.getElementById('notifyEta').value;
+
+  document.getElementById('notifyLoader').style.display = 'block';
+  document.getElementById('msgOptions').innerHTML = '';
+
+  try {
+    const res = await fetch(`${API_BASE}/notify/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scenario: selectedScenario,
+        customer_name: name,
+        eta_minutes: parseInt(eta) || 15,
+        language: 'english'
+      })
+    });
+
+    const data = await res.json();
+    document.getElementById('notifyLoader').style.display = 'none';
+
+    data.messages.forEach((msg, i) => {
+      const div = document.createElement('div');
+      div.className = 'msg-option';
+      div.innerHTML = `
+        <div class="msg-text">${msg}</div>
+        <button class="copy-btn" onclick="copyMsg('${msg.replace(/'/g, "\\'")}')">Copy</button>
+      `;
+      document.getElementById('msgOptions').appendChild(div);
+    });
+
+  } catch (e) {
+    document.getElementById('notifyLoader').style.display = 'none';
+    showToast('Generation failed — check your connection');
+  }
+}
+
+function copyMsg(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('✅ Copied to clipboard!');
+  }).catch(() => {
+    showToast('Copy failed');
+  });
+}
+</script>
+</body>
+</html>
