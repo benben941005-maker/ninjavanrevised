@@ -2,21 +2,19 @@ name: Deploy to Google Cloud Run
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 env:
-  PROJECT_ID:   ${{ secrets.GCP_PROJECT_ID }}
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: ai-driver-copilot
-  REGION:       asia-southeast1
-  REPO_NAME:    ai-driver-copilot
+  REGION: asia-southeast1
+  REPO_NAME: ai-driver-copilot
 
 jobs:
-
-  # ────────────────────────────────────────────────────────────────
-  # JOB 1 — LINT & TEST
-  # ────────────────────────────────────────────────────────────────
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -29,30 +27,35 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
+        working-directory: backend
         run: |
-          cd backend
           pip install -r requirements.txt
           pip install pytest pytest-asyncio httpx
 
-      - name: Run tests (skip if none)
-        run: |
-          cd backend
-          python -m pytest tests/ -v --tb=short 2>/dev/null || echo "No tests — skipping"
+      - name: Run tests if present
+        working-directory: backend
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -d tests ]; then
+            python -m pytest tests/ -v --tb=short
+          else
+            echo "No tests folder found — skipping"
+          fi
 
-  # ────────────────────────────────────────────────────────────────
-  # JOB 2 — BUILD & DEPLOY (main branch only)
-  # ────────────────────────────────────────────────────────────────
   deploy:
-    name: Build & Deploy
+    name: Build and Deploy
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -68,36 +71,36 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Create Artifact Registry repository (if needed)
-        run: |
-          gcloud artifacts repositories describe $REPO_NAME \
-            --location=$REGION 2>/dev/null || \
-          gcloud artifacts repositories create $REPO_NAME \
-            --repository-format=docker \
-            --location=$REGION \
-            --description="AI Driver Copilot Docker images"
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      - name: Configure Docker
-        run: gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
+      - name: Create Artifact Registry repository if needed
+        run: |
+          gcloud artifacts repositories describe "${REPO_NAME}" \
+            --location="${REGION}" >/dev/null 2>&1 || \
+          gcloud artifacts repositories create "${REPO_NAME}" \
+            --repository-format=docker \
+            --location="${REGION}" \
+            --description="Docker repository for ai-driver-copilot"
 
       - name: Build Docker image
         run: |
           docker build \
-            -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:$GITHUB_SHA \
-            -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:latest \
+            -t "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:${GITHUB_SHA}" \
+            -t "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:latest" \
             ./backend
 
       - name: Push Docker image
         run: |
-          docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:$GITHUB_SHA
-          docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:latest
+          docker push "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:${GITHUB_SHA}"
+          docker push "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:latest"
 
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy $SERVICE_NAME \
-            --image=$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME:$GITHUB_SHA \
+          gcloud run deploy "${SERVICE_NAME}" \
+            --image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:${GITHUB_SHA}" \
             --platform=managed \
-            --region=$REGION \
+            --region="${REGION}" \
             --allow-unauthenticated \
             --port=8000 \
             --memory=1Gi \
@@ -105,23 +108,20 @@ jobs:
             --min-instances=0 \
             --max-instances=10 \
             --timeout=60 \
-            --set-env-vars="ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }},GOOGLE_PLACES_API_KEY=${{ secrets.GOOGLE_PLACES_API_KEY }},ONEMAP_EMAIL=${{ secrets.ONEMAP_EMAIL }},ONEMAP_PASSWORD=${{ secrets.ONEMAP_PASSWORD }},WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}"
+            --set-env-vars=ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }},GOOGLE_PLACES_API_KEY=${{ secrets.GOOGLE_PLACES_API_KEY }},ONEMAP_EMAIL=${{ secrets.ONEMAP_EMAIL }},ONEMAP_PASSWORD=${{ secrets.ONEMAP_PASSWORD }},WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}
 
-      - name: Get service URL
+      - name: Show service URL
         run: |
-          URL=$(gcloud run services describe $SERVICE_NAME \
+          URL=$(gcloud run services describe "${SERVICE_NAME}" \
             --platform=managed \
-            --region=$REGION \
-            --format="value(status.url)")
-          echo "✅ DEPLOYED: $URL"
-          echo "📋 HEALTH:   $URL/health"
-          echo "📖 DOCS:     $URL/docs"
+            --region="${REGION}" \
+            --format='value(status.url)')
+          echo "DEPLOYED_URL=$URL" >> $GITHUB_ENV
+          echo "✅ Deployed: $URL"
+          echo "📋 Health:   $URL/health"
+          echo "📖 Docs:     $URL/docs"
 
       - name: Health check
         run: |
-          URL=$(gcloud run services describe $SERVICE_NAME \
-            --platform=managed \
-            --region=$REGION \
-            --format="value(status.url)")
           sleep 15
-          curl --fail --silent "$URL/health" && echo "✅ Health check passed" || echo "⚠️ Check Cloud Run logs"
+          curl --fail --silent "${DEPLOYED_URL}/health" && echo "✅ Health check passed"
